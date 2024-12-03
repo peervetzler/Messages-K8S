@@ -17,11 +17,11 @@ kubectl create namespace messages
 
 Create the deployments for **Sender** and **Receiver**. Both use the same Docker image, but they have different roles in the system:
 
-- **Sender Deployment**: `sender-deployment.yaml`
-- **Receiver Deployment**: `receiver-deployment.yaml`
+- **Sender Deployment**: `deployment-sender.yaml`
+- **Receiver Deployment**: `deployment-receiver.yaml`
 
 ```yaml
-# sender-deployment.yaml
+# deployment-sender.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,11 +39,11 @@ spec:
     spec:
       containers:
         - name: sender
-          image: <your-docker-image>
+          image: peervetzler/sendandreceivemessages:latest
           ports:
             - containerPort: 5000
 
-# receiver-deployment.yaml
+# deployment-receiver.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -61,7 +61,7 @@ spec:
     spec:
       containers:
         - name: receiver
-          image: <your-docker-image>
+          image: peervetzler/sendandreceivemessages:latest
           ports:
             - containerPort: 5000
 ```
@@ -70,11 +70,11 @@ spec:
 
 Expose the **Sender** and **Receiver** pods using Kubernetes services. The services allow communication between the pods:
 
-- **Sender Service**: `sender-service.yaml`
-- **Receiver Service**: `receiver-service.yaml`
+- **Sender Service**: `service-sender.yaml`
+- **Receiver Service**: `service-receiver.yaml`
 
 ```yaml
-# sender-service.yaml
+# service-sender.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -87,9 +87,9 @@ spec:
     - protocol: TCP
       port: 5000
       targetPort: 5000
-  clusterIP: None
+  type: ClusterIP
 
-# receiver-service.yaml
+# service-receiver.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -102,7 +102,7 @@ spec:
     - protocol: TCP
       port: 5000
       targetPort: 5000
-  clusterIP: None
+  type: ClusterIP
 ```
 
 ### 4. **Deploy the Configurations**
@@ -134,50 +134,44 @@ kubectl create namespace messages-headless
 
 Create **headless services** for both **Sender** and **Receiver**. The services are defined with `clusterIP: None`, which ensures direct communication between the pods.
 
-- **Sender Headless Service**: `sender-headless-service.yaml`
-- **Receiver Headless Service**: `receiver-headless-service.yaml`
+- **Sender Headless**: `sender-headless-service.yaml`
+- **Receiver Headless**: `receiver-headless-service.yaml`
 
 ```yaml
-# sender-headless-service.yaml
+# Service-sender
 apiVersion: v1
 kind: Service
 metadata:
   name: sender-service
   namespace: messages-headless
 spec:
+  clusterIP: None   # This is the headless service
   selector:
     app: sender
   ports:
-    - protocol: TCP
-      port: 5000
+    - port: 5000
       targetPort: 5000
-  clusterIP: None
 
-# receiver-headless-service.yaml
+# Service-receiver
 apiVersion: v1
 kind: Service
 metadata:
   name: receiver-service
   namespace: messages-headless
 spec:
+  clusterIP: None   # This is the headless service
   selector:
     app: receiver
   ports:
-    - protocol: TCP
-      port: 5000
-      targetPort: 5000
-  clusterIP: None
-```
+    - port: 5000
+      targetPort: 5000```
 
 ### 3. **Create Deployments**
 
 Create the **Sender** and **Receiver** deployments, just like before, but this time in the `messages-headless` namespace:
 
-- **Sender Headless Deployment**: `sender-headless-deployment.yaml`
-- **Receiver Headless Deployment**: `receiver-headless-deployment.yaml`
-
 ```yaml
-# sender-headless-deployment.yaml
+# sender deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -195,12 +189,11 @@ spec:
     spec:
       containers:
         - name: sender
-          image: <your-docker-image>
+          image: peervetzler/sendandreceivemessages:latest
           ports:
             - containerPort: 5000
 
-# receiver-headless-deployment.yaml
-apiVersion: apps/v1
+# receiver deploymentapiVersion: apps/v1
 kind: Deployment
 metadata:
   name: receiver-deployment
@@ -217,7 +210,7 @@ spec:
     spec:
       containers:
         - name: receiver
-          image: <your-docker-image>
+          image: peervetzler/sendandreceivemessages:latest
           ports:
             - containerPort: 5000
 ```
@@ -227,10 +220,8 @@ spec:
 Deploy the configurations in the `messages-headless` namespace:
 
 ```bash
-kubectl apply -f sender-headless-deployment.yaml
-kubectl apply -f receiver-headless-deployment.yaml
-kubectl apply -f sender-headless-service.yaml
-kubectl apply -f receiver-headless-service.yaml
+kubectl apply -f headless-sender.yaml
+kubectl apply -f headless-receiver.yaml
 ```
 
 ---
@@ -252,9 +243,14 @@ Inside the **Sender** pod, use `curl` to send a message to the **Receiver** serv
 ```bash
 curl -X POST http://receiver-service:5000/send -H "Content-Type: application/json" -d '{"message": "Hello Receiver!"}'
 ```
+```bash
+curl -X POST http://<pod-IP>:5000/send -H "Content-Type: application/json" -d '{"message": "Hello Receiver!"}'
+
+For getting the IP of the pod:
+kubectl get pods -n messages-headless -o wide
 
 ### 3. **Check the Receiver's Messages**
-
+```
 To verify the message was received, use `kubectl exec` to check the **Receiver** pod's message list:
 
 ```bash
