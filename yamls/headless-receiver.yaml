@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: receiver-deployment
+  namespace: messages-headless
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: receiver
+  template:
+    metadata:
+      labels:
+        app: receiver
+    spec:
+      containers:
+        - name: receiver
+          image: peervetzler/sendandreceivemessages:latest
+          ports:
+            - containerPort: 5000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: receiver-service
+  namespace: messages-headless
+spec:
+  clusterIP: None   # This is the headless service
+  selector:
+    app: receiver
+  ports:
+    - port: 5000
+      targetPort: 5000
